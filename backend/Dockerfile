@@ -19,7 +19,15 @@ WORKDIR /app
 # Update installed Alpine packages
 RUN apk update \
     && apk upgrade \
-    && rm -rf /var/cache/apk/*
+    && rm -rf /var/cache/apk/* \
+    && rm -rf /usr/local/lib/node_modules/npm \
+              /usr/local/lib/node_modules/corepack \
+              /opt/yarn-v1.22.22 \
+              /usr/local/bin/npm \
+              /usr/local/bin/npx \
+              /usr/local/bin/corepack \
+              /usr/local/bin/yarn \
+              /usr/local/bin/yarnpkg
 
 # Copy production dependencies
 COPY --from=dependencies --chown=node:node /app/node_modules ./node_modules
