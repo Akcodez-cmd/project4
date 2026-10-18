@@ -1,0 +1,44 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blog-backend
+  namespace: project4
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: blog-backend
+  template:
+    metadata:
+      labels:
+        app: blog-backend
+    spec:
+      containers:
+        - name: backend
+          image: 496663581580.dkr.ecr.ap-south-1.amazonaws.com/project4-blog-backend:1.0
+          ports:
+            - containerPort: 5000
+          envFrom:
+            - secretRef:
+                name: backend-secret
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: blog-backend-service
+  namespace: project4
+spec:
+  type: ClusterIP
+  selector:
+    app: blog-backend
+  ports:
+    - port: 5000
+      targetPort: 5000
