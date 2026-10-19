@@ -106,3 +106,25 @@ jobs:
           docker tag $ECR_BACKEND:${GITHUB_SHA} $REGISTRY/$ECR_BACKEND:${GITHUB_SHA}
           docker push $REGISTRY/$ECR_FRONTEND:${GITHUB_SHA}
           docker push $REGISTRY/$ECR_BACKEND:${GITHUB_SHA}
+
+  sonarqube-analysis:
+    name: SonarQube Code Analysis
+    runs-on: [self-hosted, Windows, X64]
+    needs: validate
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: http://localhost:9000
+        with:
+          args: >
+            -Dsonar.projectKey=project4-blog
+            -Dsonar.projectName="Project-04 Blog"
+            -Dsonar.sources=frontend/src,backend/src
+            -Dsonar.exclusions=**/node_modules/**,**/dist/**

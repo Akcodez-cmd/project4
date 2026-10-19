@@ -1,0 +1,8 @@
+# SonarQube local analysis output
+.scannerwork/
+
+# Local SonarQube configuration
+.sonar/
+
+# GitHub Actions self-hosted runner
+actions-runner/
