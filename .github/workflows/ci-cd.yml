@@ -134,3 +134,58 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "SonarQube analysis failed with exit code $LASTEXITCODE"
           }
+    
+  nexus-publish:
+    name: Publish Images to Nexus
+    runs-on: [self-hosted, Windows, X64]
+    needs: [validate, build-scan-push]
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Login to Nexus Docker Registry
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
+        env:
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: |
+          $env:NEXUS_PASSWORD | docker login localhost:8082 `
+            --username $env:NEXUS_USERNAME `
+            --password-stdin
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Nexus Docker login failed"
+          }
+
+      - name: Build and push frontend image
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
+        run: |
+          docker build -t "localhost:8082/blog-frontend:${{ github.sha }}" ./frontend
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Frontend Docker build failed"
+          }
+
+          docker push "localhost:8082/blog-frontend:${{ github.sha }}"
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Frontend image push to Nexus failed"
+          }
+
+      - name: Build and push backend image
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
+        run: |
+          docker build -t "localhost:8082/blog-backend:${{ github.sha }}" ./backend
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Backend Docker build failed"
+          }
+
+          docker push "localhost:8082/blog-backend:${{ github.sha }}"
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Backend image push to Nexus failed"
+          }
+    
