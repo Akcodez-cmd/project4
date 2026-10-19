@@ -118,13 +118,19 @@ jobs:
         uses: actions/checkout@v4
 
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v5
+        shell: powershell
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: http://localhost:9000
-        with:
-          args: >
-            -Dsonar.projectKey=project4-blog
-            -Dsonar.projectName="Project-04 Blog"
-            -Dsonar.sources=frontend/src,backend/src
-            -Dsonar.exclusions=**/node_modules/**,**/dist/**
+        run: |
+          if (-not (Test-Path "C:\sonar-scanner\bin\sonar-scanner.bat")) {
+            throw "SonarScanner CLI not found at C:\sonar-scanner\bin\sonar-scanner.bat"
+          }
+
+          & "C:\sonar-scanner\bin\sonar-scanner.bat" `
+            "-Dsonar.host.url=$env:SONAR_HOST_URL" `
+            "-Dsonar.token=$env:SONAR_TOKEN"
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "SonarQube analysis failed with exit code $LASTEXITCODE"
+          }
