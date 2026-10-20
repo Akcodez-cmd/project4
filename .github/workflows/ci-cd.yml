@@ -167,7 +167,7 @@ jobs:
 
           Write-Host "Nexus secret formatting checks passed"
 
-          
+
       - name: Check Nexus Registry
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
         run: |
@@ -175,14 +175,26 @@ jobs:
           curl.exe -s -o NUL -w "HTTP Status: %{http_code}`n" http://localhost:8082/v2/
 
 
-      - name: Login to Nexus Docker Registry
+      
+      - name: Diagnose Nexus Login
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
         run: |
-          "Admin123" | docker login localhost:8082 --username "admin" --password-stdin
+          $password = "Admin123"
+          $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
+          $credential = [System.Net.NetworkCredential]::new("", $securePassword).Password
+
+          if ($credential -cne "Admin123") {
+            throw "Password string check failed"
+          }
+
+          Write-Host "Test password string check passed"
+
+          $password | docker login localhost:8082 --username admin --password-stdin
 
           if ($LASTEXITCODE -ne 0) {
             throw "Nexus Docker login failed"
           }
+
 
       - name: Build and push frontend image
         shell: powershell
