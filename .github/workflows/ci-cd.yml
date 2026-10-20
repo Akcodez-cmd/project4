@@ -176,6 +176,20 @@ jobs:
 
 
       
+      - name: Diagnose Nexus Environment
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
+        run: |
+          Write-Host "=== Docker Context ==="
+          docker context show
+          docker info --format "Docker daemon: {{.Name}}"
+
+          Write-Host "=== Nexus Port ==="
+          Test-NetConnection localhost -Port 8082 |
+            Select-Object ComputerName, RemoteAddress, RemotePort, TcpTestSucceeded
+
+          Write-Host "=== Nexus Registry Response ==="
+          curl.exe -s -o NUL -w "HTTP Status: %{http_code}`n" http://localhost:8082/v2/
+
       - name: Diagnose Nexus Login
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
         run: |
