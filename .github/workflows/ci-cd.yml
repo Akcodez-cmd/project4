@@ -135,6 +135,7 @@ jobs:
             throw "SonarQube analysis failed with exit code $LASTEXITCODE"
           }
     
+  
   nexus-publish:
     name: Publish Images to Nexus
     runs-on: [self-hosted, Windows, X64]
@@ -145,22 +146,43 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Login to Nexus Docker Registry
-        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
+      - name: Validate Nexus secret formatting
+        shell: powershell
         env:
           NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
           NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
-          $env:NEXUS_PASSWORD | docker login localhost:8082 `
+          if ($env:NEXUS_USERNAME -cne "admin") {
+            throw "NEXUS_USERNAME does not exactly match admin"
+          }
+
+          if ([string]::IsNullOrEmpty($env:NEXUS_PASSWORD)) {
+            throw "NEXUS_PASSWORD is empty"
+          }
+
+          if ($env:NEXUS_PASSWORD -ne $env:NEXUS_PASSWORD.Trim()) {
+            throw "NEXUS_PASSWORD contains leading or trailing whitespace"
+          }
+
+          Write-Host "Nexus secret formatting checks passed"
+
+      - name: Login to Nexus Docker Registry
+        shell: powershell
+        env:
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: |
+          $password = ConvertTo-SecureString $env:NEXUS_PASSWORD -AsPlainText -Force
+          $credential = [System.Net.NetworkCredential]::new("", $password).Password
+          $credential | docker login localhost:8082 `
             --username $env:NEXUS_USERNAME `
             --password-stdin
 
           if ($LASTEXITCODE -ne 0) {
             throw "Nexus Docker login failed"
           }
-
       - name: Build and push frontend image
-        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
+        shell: powershell
         run: |
           docker build -t "localhost:8082/blog-frontend:${{ github.sha }}" ./frontend
 
@@ -175,7 +197,7 @@ jobs:
           }
 
       - name: Build and push backend image
-        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
+        shell: powershell
         run: |
           docker build -t "localhost:8082/blog-backend:${{ github.sha }}" ./backend
 
@@ -188,4 +210,3 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "Backend image push to Nexus failed"
           }
-    
