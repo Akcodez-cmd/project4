@@ -176,13 +176,14 @@ jobs:
         run: |
           $password = ConvertTo-SecureString $env:NEXUS_PASSWORD -AsPlainText -Force
           $credential = [System.Net.NetworkCredential]::new("", $password).Password
-          $credential | docker login localhost:8082 `
-            --username $env:NEXUS_USERNAME `
+          $env:NEXUS_PASSWORD | docker login localhost:8082 
+            --username "admin" 
             --password-stdin
 
           if ($LASTEXITCODE -ne 0) {
             throw "Nexus Docker login failed"
           }
+
       - name: Build and push frontend image
         shell: powershell
         run: |
