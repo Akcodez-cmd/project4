@@ -170,16 +170,8 @@ jobs:
 
       - name: Login to Nexus Docker Registry
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
-        env:
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
-          $password = ConvertTo-SecureString $env:NEXUS_PASSWORD -AsPlainText -Force
-          $credential = [System.Net.NetworkCredential]::new("", $password).Password
-          $env:NEXUS_PASSWORD | docker login localhost:8082 
-            --username "admin" 
-            --password-stdin
-
+          "Admin123" | docker login localhost:8082 --username "admin" --password-stdin
           if ($LASTEXITCODE -ne 0) {
             throw "Nexus Docker login failed"
           }
