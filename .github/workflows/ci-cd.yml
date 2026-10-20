@@ -146,8 +146,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      
       - name: Validate Nexus secret formatting
-        shell: powershell
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
         env:
           NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
           NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
@@ -165,6 +166,7 @@ jobs:
           }
 
           Write-Host "Nexus secret formatting checks passed"
+
 
       - name: Login to Nexus Docker Registry
         shell: powershell
