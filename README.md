@@ -82,11 +82,8 @@ port-forward stops, backend metrics collection will need to be
 restarted. This is a local monitoring setup and does not currently
 provide automatic recovery of the port-forward.
 
-Prometheus targets can be checked at `http://localhost:9090/targets`,
-and Grafana is available at `http://localhost:3000` when the local
-containers are running.
 
-## Local Monitoring Services
+##  Monitoring Services
 
 The following local containers were used during the project:
 
