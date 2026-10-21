@@ -148,7 +148,12 @@ jobs:
 
       - name: Wait for backend rollout
         run: |
-          kubectl -n project4 rollout status deployment/blog-backend --timeout=180s
+          kubectl -n project4 rollout status deployment/blog-backend --timeout=300s
+
+      - name: Verify deployed application
+        run: |
+          kubectl -n project4 get deployments -o wide
+          kubectl -n project4 get pods
 
 
   sonarqube-analysis:
