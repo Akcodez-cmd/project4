@@ -190,24 +190,33 @@ jobs:
           Write-Host "=== Nexus Registry Response ==="
           curl.exe -s -o NUL -w "HTTP Status: %{http_code}`n" http://localhost:8082/v2/
 
+      
       - name: Diagnose Nexus Login
-        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
+        shell: powershell
+        env:
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
-          $password = "Admin123"
-          $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
-          $credential = [System.Net.NetworkCredential]::new("", $securePassword).Password
-
-          if ($credential -cne "Admin123") {
-            throw "Password string check failed"
+          if ([string]::IsNullOrWhiteSpace($env:NEXUS_USERNAME)) {
+            throw "NEXUS_USERNAME secret is empty"
           }
 
-          Write-Host "Test password string check passed"
+          if ([string]::IsNullOrEmpty($env:NEXUS_PASSWORD)) {
+            throw "NEXUS_PASSWORD secret is empty"
+          }
 
-          $password | docker login localhost:8082 --username admin --password-stdin
+          Write-Host "Attempting Nexus Docker login..."
+
+          $env:NEXUS_PASSWORD | docker login localhost:8082 `
+            --username $env:NEXUS_USERNAME `
+            --password-stdin
 
           if ($LASTEXITCODE -ne 0) {
-            throw "Nexus Docker login failed"
+            throw "Nexus Docker login failed. Verify the Nexus credentials and registry configuration."
           }
+
+          Write-Host "Nexus Docker login successful"
+
 
 
       - name: Build and push frontend image
