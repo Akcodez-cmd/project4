@@ -123,9 +123,28 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: http://localhost:9000
         run: |
-          if (-not (Test-Path "C:\sonar-scanner\bin\sonar-scanner.bat")) {
-            throw "SonarScanner CLI not found at C:\sonar-scanner\bin\sonar-scanner.bat"
+
+          if ([string]::IsNullOrWhiteSpace($env:SONAR_TOKEN)) {
+            throw "SONAR_TOKEN secret is empty"
           }
+
+          if (-not (Test-Path "C:\sonar-scanner\bin\sonar-scanner.bat")) {
+            throw "SonarScanner CLI not found"
+          }
+
+          Write-Host "Validating SonarQube token..."
+
+          $response = curl.exe -sS -o NUL -w "%{http_code}" `
+            -H "Authorization: Bearer $env:SONAR_TOKEN" `
+            "$env:SONAR_HOST_URL/api/authentication/validate"
+
+          Write-Host "SonarQube token validation HTTP status: $response"
+
+          if ($response -ne "200") {
+            throw "SonarQube token validation failed with HTTP status $response"
+          }
+
+          Write-Host "Token validation succeeded. Starting analysis..."
 
           & "C:\sonar-scanner\bin\sonar-scanner.bat" `
             "-Dsonar.host.url=$env:SONAR_HOST_URL" `
@@ -134,6 +153,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "SonarQube analysis failed with exit code $LASTEXITCODE"
           }
+
     
   
   nexus-publish:
