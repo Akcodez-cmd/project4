@@ -1,129 +1,106 @@
-# Marginal — Blog App on EKS (CI/CD Reference Project)
+# Project-04: Three-Tier Blog Application CI/CD on Amazon EKS
 
-A production-style 3-tier blog application — **React frontend, Node.js/Express backend,
-MySQL database** — deployed to **Amazon EKS** through a Jenkins pipeline that runs
-**SonarQube** (code quality), **Nexus** (artifact storage), **Trivy** (container scanning),
-and ships with **Prometheus/Grafana** monitoring hooks.
+## Overview
+
+This project deploys a three-tier blog application to Amazon EKS and
+automates the build, security checks, image publishing, and deployment
+process with GitHub Actions.
+
+The application has a React frontend, an Express backend API, and a
+MySQL database. The pipeline also includes code quality analysis,
+container image scanning, and image publishing to Amazon ECR and Nexus.
 
 ## Architecture
 
-```
-                         ┌────────────────────────┐
- Browser ── HTTPS ──▶    │   ALB Ingress (EKS)     │
-                         └───────────┬─────────────┘
-                     ┌───────────────┴───────────────┐
-                     ▼                                ▼
-          ┌─────────────────────┐          ┌─────────────────────┐
-          │ frontend-service     │  /api → │ backend-service      │
-          │ (nginx + React SPA)  │────────▶│ (Node/Express API)   │
-          │ 3+ pods, HPA         │          │ 3+ pods, HPA          │
-          └─────────────────────┘          └──────────┬───────────┘
-                                                        ▼
-                                            ┌─────────────────────┐
-                                            │ mysql StatefulSet    │
-                                            │ + EBS gp3 volume     │
-                                            └─────────────────────┘
+-   **Frontend:** React with Vite
+-   **Backend:** Node.js and Express REST API
+-   **Database:** MySQL 8.4
+-   **Containerization:** Docker
+-   **Orchestration:** Amazon EKS and Kubernetes
+-   **CI/CD:** GitHub Actions
+-   **Code quality:** SonarQube
+-   **Image scanning:** Trivy
+-   **Image registries:** Amazon ECR and Nexus Repository
+-   **Monitoring:** Prometheus and Grafana
 
-CI/CD:  Git push → Jenkins → npm test → SonarQube gate → Nexus (artifact) →
-        docker build → Trivy scan (fails on CRITICAL/HIGH) → push to ECR →
-        kubectl apply -k (EKS) → rollout status → smoke test
+## CI/CD Workflow
 
-Monitoring: Prometheus Operator scrapes backend /metrics via ServiceMonitor,
-            PrometheusRule alerts on 5xx rate / crash loops / DB down,
-            Grafana dashboards on top (bring your own kube-prometheus-stack).
-```
+The GitHub Actions workflow runs the following stages:
 
-## Repository layout
+1.  Validate the application and build the frontend.
+2.  Run backend checks and tests.
+3.  Analyze code with SonarQube.
+4.  Build the frontend and backend Docker images.
+5.  Scan the images with Trivy.
+6.  Push versioned images to Amazon ECR.
+7.  Deploy the images to Amazon EKS.
+8.  Check the deployment rollout and verify the Kubernetes resources.
+9.  Publish images to Nexus Repository.
 
-```
-blog-app-eks/
-├── frontend/            React (Vite) SPA, nginx-unprivileged Docker image
-├── backend/              Express REST API, MySQL client, JWT auth, Prometheus metrics
-├── database/init.sql     Schema + seed data (users, posts, comments)
-├── k8s/
-│   ├── base/              Namespace, gp3 StorageClass
-│   ├── mysql/              StatefulSet, PVC, Secret, init ConfigMap
-│   ├── backend/            Deployment, Service, HPA, ConfigMap/Secret
-│   ├── frontend/           Deployment, Service, HPA
-│   ├── ingress/            ALB Ingress
-│   ├── monitoring/         ServiceMonitor + PrometheusRule
-│   └── kustomization.yaml  Ties everything together (`kubectl apply -k k8s/`)
-├── Jenkinsfile            Full CI/CD pipeline
-└── docker-compose.yml     Local dev: mysql + backend + frontend
-```
+The latest verified workflow run completed successfully across all five
+jobs.
 
-## Run it locally first
+## Kubernetes Deployment
 
-```bash
-docker compose up --build
-# frontend  → http://localhost:3000
-# backend   → http://localhost:5000/healthz
-# mysql     → localhost:3306 (bloguser / changeme)
+The application runs in the `project4` namespace on the EKS cluster
+`project4-eks-cluster`.
+
+Main Kubernetes workloads and services:
+
+-   `blog-frontend`
+-   `blog-backend`
+-   `mysql`
+-   `blog-backend-service`
+-   `mysql-service`
+
+The backend exposes a `/metrics` endpoint for Prometheus metrics.
+
+Useful commands to check the deployment:
+
+``` bash
+kubectl get nodes
+kubectl -n project4 get deployments -o wide
+kubectl -n project4 get pods -o wide
+kubectl -n project4 get services
 ```
 
-The seed data ships four demo posts; register a new account to write your own entries.
+## Monitoring
 
-## Prerequisites for the real EKS deployment
+Prometheus collects metrics from the backend, including Node.js process,
+memory, event-loop, and HTTP request metrics. Grafana is connected to
+Prometheus and has panels for backend availability and memory usage.
 
-1. **EKS cluster** (`eksctl create cluster ...`) with:
-   - AWS EBS CSI driver add-on (for the `gp3` StorageClass / MySQL PVC)
-   - AWS Load Balancer Controller add-on (for the ALB Ingress)
-   - An ACM certificate for your domain, referenced in `k8s/ingress/ingress.yaml`
-2. **ECR** repositories: `blogapp-backend`, `blogapp-frontend`
-3. **Nexus** repository (npm-hosted) reachable from the Jenkins agent
-4. **SonarQube** server + a Jenkins `sonarqube-server` configuration
-5. **Trivy** installed on the Jenkins agent (or run as a container step)
-6. **kube-prometheus-stack** installed via Helm in a `monitoring` namespace
-   (provides the Prometheus Operator CRDs the `ServiceMonitor`/`PrometheusRule` need)
-7. Jenkins credentials: `aws-creds`, `sonarqube-token`, `nexus-creds`, `ecr-registry` (string)
+The current local monitoring setup scrapes the backend through a
+Kubernetes port-forward. Start it from the project directory with:
 
-## Deploying manually (what the pipeline automates)
-
-```bash
-aws eks update-kubeconfig --name blogapp-eks-cluster --region ap-south-1
-
-# Load the real schema into the init ConfigMap
-kubectl create configmap mysql-init-script \
-  --from-file=init.sql=database/init.sql -n blogapp \
-  --dry-run=client -o yaml | kubectl apply -f -
-
-# Build & push images
-docker build -t <ECR_REGISTRY>/blogapp-backend:v1 ./backend
-docker build -t <ECR_REGISTRY>/blogapp-frontend:v1 ./frontend
-trivy image --severity CRITICAL,HIGH <ECR_REGISTRY>/blogapp-backend:v1
-docker push <ECR_REGISTRY>/blogapp-backend:v1
-docker push <ECR_REGISTRY>/blogapp-frontend:v1
-
-# Point the manifests at the images you just pushed, then apply
-sed -i "s#<ECR_REGISTRY>/blogapp-backend:IMAGE_TAG#<ECR_REGISTRY>/blogapp-backend:v1#" k8s/backend/deployment.yaml
-sed -i "s#<ECR_REGISTRY>/blogapp-frontend:IMAGE_TAG#<ECR_REGISTRY>/blogapp-frontend:v1#" k8s/frontend/deployment.yaml
-kubectl apply -k k8s/
-kubectl rollout status deployment/backend -n blogapp
-kubectl rollout status deployment/frontend -n blogapp
-kubectl get ingress blogapp-ingress -n blogapp
+``` bash
+kubectl -n project4 port-forward service/blog-backend-service 5000:5000
 ```
 
-## Secrets — replace before real use
+Keep the terminal open while using this monitoring connection. If the
+port-forward stops, backend metrics collection will need to be
+restarted. This is a local monitoring setup and does not currently
+provide automatic recovery of the port-forward.
 
-`k8s/mysql/secret.yaml` and `k8s/backend/config.yaml` contain placeholder passwords
-(`REPLACE_WITH_...`). For production, don't commit real secrets — pull them from
-AWS Secrets Manager via the External Secrets Operator, or inject them at deploy time
-from a Jenkins credential store.
+Prometheus targets can be checked at `http://localhost:9090/targets`,
+and Grafana is available at `http://localhost:3000` when the local
+containers are running.
 
-## What each tool is doing in the pipeline
+## Local Monitoring Services
 
-| Stage | Tool | Purpose |
-|---|---|---|
-| Static analysis | **SonarQube** | Code smells, bugs, coverage, quality gate blocks bad merges |
-| Artifact storage | **Nexus** | Versioned backend package storage, single source of truth for releases |
-| Image scanning | **Trivy** | Fails the build on CRITICAL/HIGH CVEs in either image, plus a filesystem/dependency scan |
-| Registry | **ECR** | Stores the scanned, tagged images the cluster pulls from |
-| Deploy | **kubectl + kustomize** | Applies the full manifest set to EKS, waits for rollout health |
-| Monitoring | **Prometheus + Grafana** | Scrapes `/metrics`, alerts on error rate / crash loops / DB availability |
+The following local containers were used during the project:
 
-## Frontend design notes
+-   Prometheus: port `9090`
+-   Grafana: port `3000`
+-   SonarQube: port `9000`
+-   Nexus Repository: ports `8081` and `8082`
 
-The UI ("Marginal") is a custom-built design system, not a component-library
-default: a paper-grain background, Fraunces/Inter/IBM Plex Mono type pairing,
-moss-and-rust accent ink, and a signature **reading-spine** scroll-progress
-ruler on article pages. All tokens live in `frontend/src/index.css`.
+These services need to be running locally to access their web
+interfaces.
+
+## Repository and Evidence
+
+Project screenshots are stored separately in the
+`Project-04-Screenshots` git repo. They include evidence of the successful
+GitHub Actions workflow, Prometheus target health, Grafana panels, and
+the Kubernetes deployment.
