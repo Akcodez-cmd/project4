@@ -155,7 +155,6 @@ jobs:
           }
 
     
-  
   nexus-publish:
     name: Publish Images to Nexus
     runs-on: [self-hosted, Windows, X64]
@@ -166,7 +165,6 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      
       - name: Validate Nexus secret formatting
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
         env:
@@ -187,15 +185,12 @@ jobs:
 
           Write-Host "Nexus secret formatting checks passed"
 
-
       - name: Check Nexus Registry
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
         run: |
           Write-Host "Checking Nexus registry endpoint..."
           curl.exe -s -o NUL -w "HTTP Status: %{http_code}`n" http://localhost:8082/v2/
 
-
-      
       - name: Diagnose Nexus Environment
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
         run: |
@@ -210,9 +205,8 @@ jobs:
           Write-Host "=== Nexus Registry Response ==="
           curl.exe -s -o NUL -w "HTTP Status: %{http_code}`n" http://localhost:8082/v2/
 
-      
-      - name: Diagnose Nexus Login
-        shell: powershell
+      - name: Docker login to Nexus
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
         env:
           NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
           NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
@@ -237,10 +231,8 @@ jobs:
 
           Write-Host "Nexus Docker login successful"
 
-
-
       - name: Build and push frontend image
-        shell: powershell
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
         run: |
           docker build -t "localhost:8082/blog-frontend:${{ github.sha }}" ./frontend
 
@@ -255,7 +247,7 @@ jobs:
           }
 
       - name: Build and push backend image
-        shell: powershell
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& '{0}'"
         run: |
           docker build -t "localhost:8082/blog-backend:${{ github.sha }}" ./backend
 
