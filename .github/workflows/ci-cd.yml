@@ -233,12 +233,23 @@ jobs:
 
           Write-Host "Attempting Nexus Docker login..."
 
-          $env:NEXUS_PASSWORD | docker login localhost:8082 `
-            --username $env:NEXUS_USERNAME `
-            --password-stdin
+          $tmp = Join-Path $env:RUNNER_TEMP "nexus-pw.txt"
+          try {
+            [System.IO.File]::WriteAllText(
+              $tmp,
+              $env:NEXUS_PASSWORD,
+              (New-Object System.Text.UTF8Encoding($false))
+            )
 
-          if ($LASTEXITCODE -ne 0) {
-            throw "Nexus Docker login failed. Verify the Nexus credentials and registry configuration."
+            cmd /c "docker login localhost:8082 --username $($env:NEXUS_USERNAME) --password-stdin < `"$tmp`""
+            $loginExit = $LASTEXITCODE
+          }
+          finally {
+            if (Test-Path $tmp) { Remove-Item $tmp -Force }
+          }
+
+          if ($loginExit -ne 0) {
+            throw "Nexus Docker login failed (exit code $loginExit)."
           }
 
           Write-Host "Nexus Docker login successful"
